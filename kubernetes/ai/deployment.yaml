@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-svc
+  namespace: eventos-ai
+  labels:
+    app: ai-svc
+    service: ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-svc
+  template:
+    metadata:
+      labels:
+        app: ai-svc
+        service: ai
+    spec:
+      containers:
+        - name: ai-svc
+          image: ghcr.io/eventos-ai/ai:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PORT
+              value: "8000"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: eventos-secrets
+                  key: openai-api-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: eventos-secrets
+                  key: database-url
+            - name: REDIS_URL
+              value: redis://redis-svc.eventos-data:6379
+            - name: QDRANT_URL
+              value: http://qdrant-svc.eventos-data:6333
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-svc
+  namespace: eventos-ai
+spec:
+  selector:
+    app: ai-svc
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-svc
+  namespace: eventos-ai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-svc
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

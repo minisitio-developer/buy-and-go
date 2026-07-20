@@ -1,0 +1,386 @@
+version: "3.9"
+
+networks:
+  eventos-network:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eventos-postgres
+    environment:
+      POSTGRES_DB: eventos
+      POSTGRES_USER: eventos
+      POSTGRES_PASSWORD: eventos_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eventos-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: eventos-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - eventos-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: eventos-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - eventos-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: eventos-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - eventos-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: eventos-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - eventos-network
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: eventos-ai
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      REDIS_URL: redis://redis:6379
+      QDRANT_URL: http://qdrant:6333
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks:
+      - eventos-network
+
+  identity:
+    build:
+      context: ./backend
+      dockerfile: services/identity/Dockerfile
+    container_name: eventos-identity
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  event:
+    build:
+      context: ./backend
+      dockerfile: services/event/Dockerfile
+    container_name: eventos-event
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  ticket:
+    build:
+      context: ./backend
+      dockerfile: services/ticket/Dockerfile
+    container_name: eventos-ticket
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  checkin:
+    build:
+      context: ./backend
+      dockerfile: services/checkin/Dockerfile
+    container_name: eventos-checkin
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3004
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  crm:
+    build:
+      context: ./backend
+      dockerfile: services/crm/Dockerfile
+    container_name: eventos-crm
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3005
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  sponsor:
+    build:
+      context: ./backend
+      dockerfile: services/sponsor/Dockerfile
+    container_name: eventos-sponsor
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3006
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  payment:
+    build:
+      context: ./backend
+      dockerfile: services/payment/Dockerfile
+    container_name: eventos-payment
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3007
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  notification:
+    build:
+      context: ./backend
+      dockerfile: services/notification/Dockerfile
+    container_name: eventos-notification
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3008
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_SMS_NUMBER: ${TWILIO_SMS_NUMBER:-}
+      TWILIO_WHATSAPP_NUMBER: ${TWILIO_WHATSAPP_NUMBER:-}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  search:
+    build:
+      context: ./backend
+      dockerfile: services/search/Dockerfile
+    container_name: eventos-search
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3009
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+    ports:
+      - "3009:3009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    container_name: eventos-elasticsearch
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: "false"
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - eventos-network
+
+volumes:
+  pgdata:
+  qdrant_data:
+  esdata:

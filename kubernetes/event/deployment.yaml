@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-svc
+  namespace: eventos-platform
+  labels:
+    app: event-svc
+    service: event
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: event-svc
+  template:
+    metadata:
+      labels:
+        app: event-svc
+        service: event
+    spec:
+      containers:
+        - name: event-svc
+          image: ghcr.io/eventos-ai/event:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3002
+          env:
+            - name: PORT
+              value: "3002"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: eventos-secrets
+                  key: database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: eventos-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-svc
+  namespace: eventos-platform
+spec:
+  selector:
+    app: event-svc
+  ports:
+    - port: 3002
+      targetPort: 3002
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: event-svc
+  namespace: eventos-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: event-svc
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

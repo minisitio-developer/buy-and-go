@@ -1,0 +1,116 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model FaceTemplate {
+    id            String   @id @default(cuid()) @db.Uuid
+    attendeeId    String   @map("attendee_id") @db.Uuid
+    templateId    String   @map("template_id")
+    algorithm     String   @default("Facenet")
+    qualityScore  Float?   @map("quality_score")
+    enrolledAt    DateTime @default(now()) @map("enrolled_at")
+    createdAt     DateTime @default(now()) @map("created_at")
+
+    attendee      Attendee @relation(fields: [attendeeId], references: [id])
+
+    @@index([attendeeId])
+    @@map("face_templates")
+}
+
+model FaceVerification {
+    id            String   @id @default(cuid()) @db.Uuid
+    checkinId     String?  @map("checkin_id") @db.Uuid
+    attendeeId    String   @map("attendee_id") @db.Uuid
+    score         Float
+    verified      Boolean
+    livenessScore Float?   @map("liveness_score")
+    imageUrl      String?  @map("image_url")
+    deviceInfo    Json?    @map("device_info")
+    createdAt     DateTime @default(now()) @map("created_at")
+
+    checkin       CheckIn? @relation(fields: [checkinId], references: [id])
+    attendee      Attendee @relation(fields: [attendeeId], references: [id])
+
+    @@index([attendeeId])
+    @@index([checkinId])
+    @@map("face_verifications")
+}
+
+model Attendee {
+    id            String   @id @default(uuid()) @db.Uuid
+    organizationId String  @map("organization_id") @db.Uuid
+    eventId       String   @map("event_id") @db.Uuid
+    userId        String?  @map("user_id") @db.Uuid
+    name          String
+    email         String
+    phone         String?
+    document      String?
+    documentType  String?  @map("document_type")
+    company       String?
+    position      String?
+    category      String   @default("visitor")
+    isApproved    Boolean  @default(true) @map("is_approved")
+    metadata      Json     @default("{}")
+    createdAt     DateTime @default(now()) @map("created_at")
+    updatedAt     DateTime @updatedAt @map("updated_at")
+
+    checkIns         CheckIn[]
+    credentials      Credential?
+    faceTemplates    FaceTemplate[]
+    faceVerifications FaceVerification[]
+
+    @@unique([eventId, email])
+    @@index([eventId])
+    @@index([organizationId])
+    @@index([company])
+    @@map("attendees")
+}
+
+model Credential {
+    id        String   @id @default(uuid()) @db.Uuid
+    attendeeId String  @unique @map("attendee_id") @db.Uuid
+    eventId   String   @map("event_id") @db.Uuid
+    qrCode    String   @unique @map("qr_code")
+    qrData    String?  @map("qr_data")
+    nfcTag    String?  @map("nfc_tag")
+    rfidTag   String?  @map("rfid_tag")
+    printedAt DateTime? @map("printed_at")
+    issuedAt  DateTime @default(now()) @map("issued_at")
+    expiresAt DateTime? @map("expires_at")
+    isActive  Boolean  @default(true) @map("is_active")
+    createdAt DateTime @default(now()) @map("created_at")
+
+    attendee Attendee @relation(fields: [attendeeId], references: [id])
+
+    @@index([eventId])
+    @@map("credentials")
+}
+
+model CheckIn {
+    id          String   @id @default(uuid()) @db.Uuid
+    attendeeId  String   @map("attendee_id") @db.Uuid
+    eventId     String   @map("event_id") @db.Uuid
+    method      String
+    checkedInBy String?  @map("checked_in_by") @db.Uuid
+    deviceId    String?  @map("device_id")
+    ipAddress   String?  @map("ip_address")
+    location    Json?
+    photoUrl    String?  @map("photo_url")
+    metadata    Json     @default("{}")
+    isSynced    Boolean  @default(true) @map("is_synced")
+    syncedAt    DateTime? @map("synced_at")
+    createdAt   DateTime @default(now()) @map("created_at")
+
+    attendee Attendee @relation(fields: [attendeeId], references: [id])
+
+    @@index([attendeeId])
+    @@index([eventId])
+    @@index([eventId, method])
+    @@unique([attendeeId, eventId])
+    @@map("check_ins")
+}

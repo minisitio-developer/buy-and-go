@@ -1,0 +1,41 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model SagaInstance {
+    id          String   @id
+    sagaName    String
+    status      String
+    currentStep Int      @default(0)
+    metadata    Json?
+    createdAt   DateTime @default(now())
+    completedAt DateTime?
+
+    events SagaEvent[]
+
+    @@index([sagaName, status])
+    @@index([status])
+    @@map("saga_instances")
+}
+
+model SagaEvent {
+    id             String   @id
+    sagaInstanceId String
+    sagaName       String
+    stepName       String?
+    stepStatus     String?
+    eventType      String
+    data           Json?
+    timestamp      DateTime @default(now())
+
+    instance SagaInstance @relation(fields: [sagaInstanceId], references: [id])
+
+    @@index([sagaInstanceId])
+    @@index([sagaInstanceId, timestamp])
+    @@map("saga_events")
+}

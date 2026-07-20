@@ -1,0 +1,49 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: kubernetes
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+
+  - job_name: kafka
+    static_configs:
+      - targets:
+          - kafka-svc.eventos-data:9092
+
+  - job_name: postgres
+    static_configs:
+      - targets:
+          - postgres-svc.eventos-data:9187
+
+  - job_name: redis
+    static_configs:
+      - targets:
+          - redis-svc.eventos-data:9121
+
+  - job_name: ai-service
+    static_configs:
+      - targets:
+          - ai-svc.eventos-ai:8000

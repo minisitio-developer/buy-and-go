@@ -1,0 +1,23 @@
+const config = {
+    appName: '{{appName}}',
+    eventId: '{{eventId}}',
+    organizationId: '{{organizationId}}',
+    apiUrl: '{{appConfig.apiUrl}}',
+    version: '{{version}}',
+    buildId: '{{buildId}}',
+    modules: [
+        {{#each modules}}
+        {
+            id: '{{this}}',
+            enabled: true,
+        },
+        {{/each}}
+    ],
+    features: {
+        {{#each modules}}
+        {{this}}: true,
+        {{/each}}
+    },
+};
+
+export default config;

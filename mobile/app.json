@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "EventOS AI",
+    "slug": "eventos-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "eventos",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eventosai.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used to scan QR codes for event check-in."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.eventosai.mobile",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow EventOS to access your camera for QR code scanning."
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Allow EventOS to access Face ID for secure authentication."
+        }
+      ],
+      "expo-router"
+    ]
+  }
+}

@@ -1,0 +1,80 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+model Pipeline {
+    id             String  @id @default(uuid()) @db.Uuid
+    organizationId String  @map("organization_id") @db.Uuid
+    name           String
+    description    String?
+    isDefault      Boolean @default(false) @map("is_default")
+    createdAt      DateTime @default(now()) @map("created_at")
+
+    stages Stage[]
+    deals  Deal[]
+
+    @@map("crm_pipelines")
+}
+
+model Stage {
+    id         String   @id @default(uuid()) @db.Uuid
+    pipelineId String   @map("pipeline_id") @db.Uuid
+    name       String
+    position   Int
+    color      String?
+    probability Int     @default(0)
+    createdAt  DateTime @default(now()) @map("created_at")
+
+    pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+    deals    Deal[]
+
+    @@map("crm_stages")
+}
+
+model Deal {
+    id             String    @id @default(uuid()) @db.Uuid
+    organizationId String    @map("organization_id") @db.Uuid
+    pipelineId     String    @map("pipeline_id") @db.Uuid
+    stageId        String    @map("stage_id") @db.Uuid
+    title          String
+    value          Decimal   @default(0) @db.Decimal(12, 2)
+    contactId      String?   @map("contact_id") @db.Uuid
+    ownerId        String?   @map("owner_id") @db.Uuid
+    source         String?
+    expectedClose  DateTime? @map("expected_close")
+    closedAt       DateTime? @map("closed_at")
+    lostReason     String?   @map("lost_reason")
+    createdAt      DateTime  @default(now()) @map("created_at")
+    updatedAt      DateTime  @updatedAt @map("updated_at")
+
+    pipeline Pipeline @relation(fields: [pipelineId], references: [id])
+    stage    Stage    @relation(fields: [stageId], references: [id])
+    contact  Contact? @relation(fields: [contactId], references: [id])
+
+    @@index([organizationId])
+    @@index([pipelineId])
+    @@index([stageId])
+    @@index([ownerId])
+    @@map("crm_deals")
+}
+
+model Contact {
+    id             String   @id @default(uuid()) @db.Uuid
+    organizationId String   @map("organization_id") @db.Uuid
+    userId         String?  @map("user_id") @db.Uuid
+    name           String
+    email          String?
+    phone          String?
+    document       String?
+    company        String?
+    position       String?
+    source         String?
+    tags           Json     @default("[]")
+    metadata       Json     @default("{}")
+    createdAt      DateTime @default(now()) @map("created_at")
+    updatedAt      DateTime @updatedAt @map("updated_at")
+
+    deals Deal[]
+
+    @@index([organizationId])
+    @@map("crm_contacts")
+}

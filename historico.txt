@@ -1,0 +1,261 @@
+================================================================================
+ HISTÓRICO DO PROJETO EventOS AI
+================================================================================
+ Data: 16/07/2026
+ Descrição: Plataforma completa de gestão de eventos (competidora DeskSoft/Facedoor)
+ Arquitetura: Monorepo com 7 microserviços NestJS, Next.js, Python AI, Kafka, PostgreSQL, Redis
+================================================================================
+
+1. VISÃO GERAL DO QUE FOI CONSTRUÍDO
+================================================================================
+
+--- 1.1 BACKEND (7 microserviços NestJS) ---
+
+  identity (porta 3001) - Autenticação e organização
+    - Auth (register, login, refresh)
+    - Users CRUD
+    - Organizations CRUD + membros
+    - JWT com refresh token
+    - @eventos-ai/auth lib compartilhada
+
+  event (porta 3002) - Gestão de eventos
+    - CRUD eventos com publish/cancel/duplicate
+    - Rooms CRUD
+    - Schedules CRUD
+
+  ticket (porta 3003) - Ingressos e pedidos
+    - Ticket-types CRUD
+    - Lots CRUD (Early Bird, Regular)
+    - Coupons CRUD
+    - Orders CRUD com confirm/refund
+
+  checkin (porta 3004) - Credenciamento
+    - Check-in por QR code e manual
+    - Attendees CRUD + batch import
+    - Face recognition (enroll + verify + liveness)
+    - Sync endpoints
+    - WebSocket gateways (checkin, notifications, chat)
+    - Kafka producer (CHECKIN_CREATED)
+    - Kafka consumer (ORDER_CONFIRMED, TICKET_ISSUED)
+
+  crm (porta 3005) - CRM
+    - Pipelines CRUD com stages
+    - Deals CRUD com move/close/reopen
+    - Contacts CRUD com merge/deduplication
+    - Domain layer completa (entidades, repositórios, eventos de domínio)
+    - 61 testes unitários
+    - Kafka producer (DEAL_CREATED, DEAL_MOVED, DEAL_CLOSED, CONTACT_CREATED)
+    - Kafka consumer (CHECKIN_CREATED, PAYMENT_COMPLETED)
+
+  sponsor (porta 3006) - Patrocinadores [CRIADO]
+    - Sponsors CRUD (tiers: diamond/gold/silver/bronze)
+    - Booths CRUD com check-in tracking
+    - Metrics com ROI calculation
+
+  payment (porta 3007) - Pagamentos [CRIADO]
+    - Payments CRUD com capture/refund
+    - PIX generation + webhook
+    - Boleto generation + webhook
+    - Gateway Strategy pattern (Stripe, Asaas, Mercado Pago)
+    - Kafka producer (PAYMENT_COMPLETED, PAYMENT_FAILED, PAYMENT_REFUNDED)
+    - Kafka consumer (ORDER_CREATED)
+
+--- 1.2 LIBS COMPARTILHADAS ---
+
+  backend/libs/auth/ (@eventos-ai/auth)
+    - AuthModule (forRoot dinâmico)
+    - JwtAuthGuard
+    - CurrentUser decorator
+    - JwtPayload interface
+
+  backend/libs/messaging/ (@eventos-ai/messaging) [CRIADO]
+    - EventBusModule (forRoot, Global)
+    - EventBusService (publish/subscribe via KafkaJS)
+    - EventBusProducer (wraps KafkaJS Producer)
+    - DomainEvent interface
+    - Tópicos: CHECKIN, TICKET, CRM, PAYMENT, SPONSOR, EVENT, NOTIFICATION
+    - Schemas: checkin.events, ticket.events, crm.events, payment.events
+
+--- 1.3 API GATEWAY ---
+
+  backend/gateways/api-gateway/ (porta 8080) [CRIADO]
+    - Proxy dinâmico para todos os 7 serviços + AI
+    - Cache Redis com invalidação
+    - Rate limiting por endpoint (auth:5/min, checkin:60, ai:10, geral:100)
+    - Response envelope padronizado: { success, data, meta }
+    - Error handling global
+    - Swagger em /v1/docs
+    - Health check de todos os upstreams
+
+--- 1.4 FRONTEND (Next.js) ---
+
+  Funcionalidades:
+    - Dashboard com métricas
+    - Eventos CRUD com wizard
+    - Credenciamento (QR code + manual + facial)
+    - Pedidos e ingressos
+    - CRM (pipeline kanban, deals, contacts)
+    - Analytics (BI dashboard, reports, per-event)
+    - AI Assistente (chat com suporte)
+    - Settings (organização, billing, team, API keys, integrações)
+    - Support (chat em tempo real com WebSocket)
+
+  Infraestrutura:
+    - eventosApi client (axios com interceptors)
+    - WebSocket hooks (useCheckinWS, useNotificationsWS, useChatWS)
+    - Sidebar + Header components extraídos
+    - ShadCN UI + Tailwind
+
+--- 1.5 AI SERVICE (Python FastAPI, porta 8000) ---
+
+  12 Agentes:
+    AI-000001: Organizer AI        AI-000002: Marketing AI
+    AI-000003: Support AI          AI-000004: Check-in AI
+    AI-000005: Ticketing AI        AI-000006: Analytics AI
+    AI-000007: Security AI         AI-000008: Compliance AI
+    AI-000009: Networking AI       AI-000010: Finance AI
+    AI-000011: Content AI          AI-000012: Logistics AI
+
+  Componentes:
+    - RAG com Qdrant + sentence-transformers
+    - MCP server (14 ferramentas HTTP)
+    - MemoryService (Redis)
+    - Orchestrator (roteamento entre agentes)
+    - Face Recognition (DeepFace/Facenet + OpenCV):
+      POST /v1/face/enroll
+      POST /v1/face/verify
+      POST /v1/face/identify
+      POST /v1/face/liveness
+
+--- 1.6 WEB ASSETS (CRIADO) ---
+
+  mobile/ - React Native Expo:
+    - Login, QR scanner, check-ins, profile, face enrollment
+    - Câmera, secure-store
+
+  sdk/ - @eventos-ai/sdk TypeScript:
+    - EventOSClient com axios
+    - 8 API modules (auth, events, tickets, checkin, crm, sponsors, payments, ai)
+    - Tipos completos para todos os domínios
+
+  cli/ - Commander CLI:
+    - eventos login/logout
+    - eventos events list/create
+    - eventos checkin stats/manual
+    - eventos attendee list/import
+    - eventos report generate
+    - eventos crm sponsors
+
+--- 1.7 INFRAESTRUTURA ---
+
+  docker-compose.yml:
+    7 backend + postgres + redis + kafka + zookeeper + qdrant + ai
+
+  Kubernetes:
+    Deployments + Services + HPAs para todos os 7 serviços + AI
+    Ingress com rotas para todos os serviços
+
+  Terraform:
+    Módulos: EKS, RDS, Redis, S3, ECR
+    ECR repositories para todos os 7 serviços + AI
+
+  Monitoring:
+    Prometheus config + alerts
+    Grafana datasource + dashboards
+
+  CI/CD (.github/workflows/ci.yml):
+    Lint → Test → Build → Deploy para todos os 7 serviços + AI
+
+--- 1.8 DOCUMENTAÇÃO (19 diretórios, todos preenchidos) ---
+
+  docs/01-Visao-Estrategica/  VOL-001  (248 linhas)
+  docs/02-Arquitetura/        VOL-002  (295 linhas)
+  docs/03-UX/                 VOL-003  (45 screens, +38 adicionadas)
+  docs/04-Banco/              VOL-004  (1404 linhas, +36 tabelas adicionadas)
+  docs/05-APIs/               VOL-005  (8 specs OpenAPI 3.1: identity, event, ticket,
+                                        checkin, crm, ai, sponsor, payment)
+  docs/06-Requisitos/         VOL-006  (230 requisitos, +205 adicionados)
+  docs/07-IA/                 VOL-007  (12 agentes, 102 casos de uso, +53 adicionados)
+  docs/07-CasosDeUso/         (contém casos de uso)
+  docs/08-BI/                 VOL-009
+  docs/09-DevOps/             VOL-008
+  docs/10-Seguranca/          VOL-011
+  docs/11-Comercial/          VOL-014  (911 linhas, criado)
+  docs/12-Testes/             VOL-010
+  docs/13-Prompts/            VOL-013  (1810 linhas, criado)
+  docs/14-Roadmap/            VOL-014  (488 linhas, CRIADO)
+  docs/15-Internacionalizacao/VOL-015  (1193 linhas, criado)
+  docs/adr/                   (3 ADRs em inglês)
+  docs/decisions/             (5 DECs CRIADOS: Prisma, ESLint, Testes, Docker, ShadCN)
+  docs/01-Arquitetura/        (2 ADRs em português: 12 + 10 decisões)
+
+
+2. TESTES CRIADOS
+================================================================================
+
+  CRM:        61 testes (pipeline/deal/contact entities + services)
+  Check-in:   1 teste entity
+  Event:      1 teste entity
+  Identity:   2 testes
+  Ticket:     1 teste entity
+  Payment:    7 suites [CRIADO]
+  Sponsor:    5 suites [CRIADO]
+  AI:         1 teste MCP
+  Frontend:   Vitest config + 2 testes + mocks [CRIADO]
+
+
+3. O QUE AINDA FALTA (Gaps Menores)
+================================================================================
+
+  Nada crítico bloqueia o funcionamento. Itens restantes:
+
+  [ ] tests/ (top-level) - vazio, sem testes E2E
+  [ ] README.md, LICENSE, CONTRIBUTING.md - não existem
+  [ ] Sidebar do frontend sem links para sub-páginas (support, settings/team, etc.)
+  [ ] Duplicação/docs organization: 01-Arquitetura vs adr/, 01-Visao-Estrategica vs 01-Arquitetura
+  [ ] mcp-server/ raiz vazio (MCP real vive dentro de ai/)
+  [ ] Terraform ambiente staging vazio
+  [ ] Kubernetes monitoring/ vazio
+
+
+4. ARQUITETURA DE EVENTOS (Kafka)
+================================================================================
+
+  Fluxo implementado:
+
+  Ticket (ORDER_CONFIRMED) ──Kafka──→ Checkin (atualiza attendee)
+  Checkin (CHECKIN_CREATED) ──Kafka──→ CRM (loga interação)
+  Payment (PAYMENT_COMPLETED)──Kafka──→ CRM (loga atividade)
+  Ticket (ORDER_CREATED) ──Kafka──→ Payment (cria payment auto)
+
+  Cadeia completa:
+    Order → Payment → Ticket → Check-in → CRM (activity log)
+
+
+5. PORTAS E SERVIÇOS
+================================================================================
+
+  8080 - API Gateway (BFF)
+  3001 - Identity
+  3002 - Event
+  3003 - Ticket
+  3004 - Check-in
+  3005 - CRM
+  3006 - Sponsor
+  3007 - Payment
+  8000 - AI Service
+  5432 - PostgreSQL
+  6379 - Redis
+  9092 - Kafka
+  6333 - Qdrant
+
+
+6. COMANDOS ÚTEIS
+================================================================================
+
+  docker compose up -d                    # Sobe tudo
+  npm run dev -w @eventos/api-gateway     # Gateway
+  npm run dev -w @eventos/checkin         # Serviço específico
+  cd frontend && npm run dev              # Frontend
+  cd ai && uvicorn main:app --reload      # AI Service
+  scripts/seed-all.ps1                    # Povoar dados de dev

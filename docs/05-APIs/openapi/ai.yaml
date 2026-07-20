@@ -1,0 +1,591 @@
+openapi: 3.1.0
+info:
+  title: EventOS AI - AI Service
+  version: 1.0.0
+  description: |
+    Artificial Intelligence service for the EventOS AI platform.
+    Provides conversational AI agents, MCP (Model Context Protocol) tool
+    execution, and intelligent automation for event management workflows.
+  contact:
+    name: EventOS AI Support
+    email: support@eventos.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:4006
+    description: Local development
+  - url: https://api.eventos.ai/v1
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Service health check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ai/chat:
+    post:
+      operationId: chatCompletion
+      summary: Send a chat message to the AI assistant
+      tags:
+        - AI Chat
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Too many requests - rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ai/agents/{agentType}/execute:
+    post:
+      operationId: executeAgent
+      summary: Execute a specialized AI agent
+      tags:
+        - AI Agents
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: agentType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [event_planner, ticket_analyst, crm_assistant, checkin_assistant, content_writer, marketing_analyst]
+          description: Type of AI agent to execute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentExecuteRequest'
+      responses:
+        '200':
+          description: Agent execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentExecuteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Agent type not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests - rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/ai/conversations:
+    get:
+      operationId: listConversations
+      summary: List user's AI conversations
+      tags:
+        - Conversations
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived]
+        - name: agentType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/ai/conversations/{id}/messages:
+    get:
+      operationId: listConversationMessages
+      summary: Get messages from a conversation
+      tags:
+        - Conversations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/mcp/tools:
+    get:
+      operationId: listMcpTools
+      summary: List available MCP tools
+      tags:
+        - MCP
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of available MCP tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/McpToolDefinition'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/mcp/tools/{toolName}:
+    post:
+      operationId: executeMcpTool
+      summary: Execute an MCP tool by name
+      tags:
+        - MCP
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: toolName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the MCP tool to execute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                arguments:
+                  type: object
+                  description: Tool-specific arguments
+      responses:
+        '200':
+          description: Tool execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                  toolName:
+                    type: string
+                  executionTime:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JSON Web Token obtained from the Identity Service
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        service:
+          type: string
+          example: ai
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The request contains invalid fields
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        conversationId:
+          type: string
+          format: uuid
+          description: ID to continue existing conversation
+        message:
+          type: string
+          example: How many tickets were sold for Tech Conference?
+        context:
+          type: object
+          properties:
+            eventId:
+              type: string
+              format: uuid
+            organizationId:
+              type: string
+              format: uuid
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          default: 0.7
+
+    ChatResponse:
+      type: object
+      required:
+        - message
+        - conversationId
+        - createdAt
+      properties:
+        conversationId:
+          type: string
+          format: uuid
+        message:
+          type: string
+          example: For the Tech Conference, 1,250 tickets have been sold so far.
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              type:
+                type: string
+            nullable: true
+        agentUsed:
+          type: string
+          nullable: true
+        tokenUsage:
+          type: object
+          properties:
+            prompt:
+              type: integer
+            completion:
+              type: integer
+            total:
+              type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    Conversation:
+      type: object
+      required:
+        - id
+        - title
+        - agentType
+        - messageCount
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Ticket Sales Analysis
+        agentType:
+          type: string
+          nullable: true
+        messageCount:
+          type: integer
+        status:
+          type: string
+          enum: [active, archived]
+        summary:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AgentExecuteRequest:
+      type: object
+      required:
+        - input
+      properties:
+        input:
+          type: string
+          example: Create a draft email campaign for the upcoming Tech Summit
+        context:
+          type: object
+          properties:
+            eventId:
+              type: string
+              format: uuid
+            organizationId:
+              type: string
+              format: uuid
+        parameters:
+          type: object
+          description: Agent-specific parameters
+          nullable: true
+        conversationId:
+          type: string
+          format: uuid
+          nullable: true
+
+    AgentExecuteResponse:
+      type: object
+      required:
+        - output
+        - agentType
+        - executionTime
+      properties:
+        output:
+          type: object
+          properties:
+            text:
+              type: string
+            data:
+              type: object
+              nullable: true
+            actions:
+              type: array
+              items:
+                type: object
+                nullable: true
+        agentType:
+          type: string
+        conversationId:
+          type: string
+          format: uuid
+          nullable: true
+        executionTime:
+          type: integer
+          description: Execution time in milliseconds
+        tokenUsage:
+          type: object
+          properties:
+            prompt:
+              type: integer
+            completion:
+              type: integer
+
+    McpToolDefinition:
+      type: object
+      required:
+        - name
+        - description
+        - parameters
+      properties:
+        name:
+          type: string
+          example: get_event_sales_data
+        description:
+          type: string
+          example: Retrieves sales data for a specific event
+        category:
+          type: string
+          example: events
+        parameters:
+          type: object
+          description: JSON Schema of the tool parameters
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

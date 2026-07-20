@@ -1,0 +1,102 @@
+import React from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import config from './src/config';
+import theme from './src/theme';
+
+const Tab = createBottomTabNavigator();
+
+const PlaceholderScreen = ({ title }: { title: string }) => {
+    const { View, Text, StyleSheet } = require('react-native');
+    return (
+        <View style={styles.container}>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>Module coming soon</Text>
+        </View>
+    );
+};
+
+const moduleScreens: Record<string, { name: string; icon: keyof typeof Ionicons.glyphMap }> = {
+    checkin: { name: 'Check-in', icon: 'checkmark-circle' },
+    schedule: { name: 'Schedule', icon: 'calendar' },
+    networking: { name: 'Networking', icon: 'people' },
+    sponsors: { name: 'Sponsors', icon: 'business' },
+    map: { name: 'Map', icon: 'map' },
+    chat: { name: 'Chat', icon: 'chatbubbles' },
+};
+
+export default function App() {
+    const enabledModules = config.modules
+        .filter((m: any) => m.enabled)
+        .map((m: any) => moduleScreens[m.id])
+        .filter(Boolean);
+
+    if (enabledModules.length === 0) {
+        const { View, Text, StyleSheet } = require('react-native');
+        return (
+            <View style={styles.container}>
+                <Text style={styles.title}>Welcome to {config.appName}</Text>
+                <StatusBar style="auto" />
+            </View>
+        );
+    }
+
+    return (
+        <SafeAreaProvider>
+            <NavigationContainer>
+                <Tab.Navigator
+                    screenOptions={({ route }) => ({
+                        tabBarIcon: ({ color, size }) => {
+                            const module = enabledModules.find(
+                                (m: any) => m.name === route.name
+                            );
+                            return module ? (
+                                <Ionicons name={module.icon} size={size} color={color} />
+                            ) : null;
+                        },
+                        tabBarActiveTintColor: theme.colors.primary,
+                        tabBarInactiveTintColor: theme.colors.textSecondary,
+                        headerStyle: { backgroundColor: theme.colors.primary },
+                        headerTintColor: '#FFFFFF',
+                    })}
+                >
+                    {enabledModules.map((module: any) => (
+                        <Tab.Screen
+                            key={module.name}
+                            name={module.name}
+                            component={() => (
+                                <PlaceholderScreen title={module.name} />
+                            )}
+                        />
+                    ))}
+                </Tab.Navigator>
+            </NavigationContainer>
+            <StatusBar style="light" />
+        </SafeAreaProvider>
+    );
+}
+
+const styles = require('react-native').StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.background,
+        padding: theme.spacing.lg,
+    },
+    title: {
+        fontSize: theme.fonts.sizes.xlarge,
+        fontFamily: theme.fonts.family,
+        color: theme.colors.text,
+        fontWeight: 'bold',
+        marginBottom: theme.spacing.sm,
+    },
+    subtitle: {
+        fontSize: theme.fonts.sizes.medium,
+        fontFamily: theme.fonts.family,
+        color: theme.colors.textSecondary,
+    },
+});

@@ -1,0 +1,984 @@
+openapi: 3.1.0
+info:
+  title: EventOS AI - Payment Service
+  version: 1.0.0
+  description: |
+    Payment processing service for the EventOS AI platform.
+    Handles payment creation, PIX and boleto generation,
+    refunds, captures, and payment gateway configuration.
+  contact:
+    name: EventOS AI Support
+    email: support@eventos.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3007/v1
+    description: Local development
+  - url: https://api.eventos.ai/v1/payment
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Service health check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /payments:
+    get:
+      operationId: listPayments
+      summary: List payments with filters
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: eventId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, refunded, chargeback]
+        - name: method
+          in: query
+          schema:
+            type: string
+            enum: [credit_card, pix, boleto]
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createPayment
+      summary: Create a new payment
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentDto'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      summary: Get payment by ID
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payments/{id}/refund:
+    post:
+      operationId: requestRefund
+      summary: Request a refund for a payment
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: float
+                  description: Amount to refund (partial)
+                reason:
+                  type: string
+                  maxLength: 500
+                initiatedBy:
+                  type: string
+                approvedBy:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Refund created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payments/{id}/capture:
+    post:
+      operationId: capturePayment
+      summary: Capture an authorized payment
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment captured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /pix/generate:
+    post:
+      operationId: generatePixQrCode
+      summary: Generate PIX QR code for a payment
+      tags:
+        - PIX
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paymentId
+              properties:
+                paymentId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: PIX QR code generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratePixResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /pix/{txid}/status:
+    get:
+      operationId: checkPixStatus
+      summary: Check PIX payment status by TXID
+      tags:
+        - PIX
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: txid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: PIX status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PixPayment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /pix/webhook:
+    post:
+      operationId: pixWebhook
+      summary: Webhook for PIX payment confirmation
+      tags:
+        - PIX
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        '200':
+          description: Webhook received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /boleto/generate:
+    post:
+      operationId: generateBoleto
+      summary: Generate boleto for a payment
+      tags:
+        - Boleto
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paymentId
+              properties:
+                paymentId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Boleto generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateBoletoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /boleto/{id}/status:
+    get:
+      operationId: checkBoletoStatus
+      summary: Check boleto payment status
+      tags:
+        - Boleto
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Boleto status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoletoPayment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /boleto/webhook:
+    post:
+      operationId: boletoWebhook
+      summary: Webhook for boleto payment confirmation
+      tags:
+        - Boleto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        '200':
+          description: Webhook received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gateways:
+    get:
+      operationId: listGateways
+      summary: List payment gateways
+      tags:
+        - Gateways
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of gateways
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GatewayConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: registerGateway
+      summary: Register a payment gateway
+      tags:
+        - Gateways
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGatewayDto'
+      responses:
+        '201':
+          description: Gateway registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Gateway config already exists for this organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /gateways/{id}:
+    patch:
+      operationId: updateGateway
+      summary: Update gateway configuration
+      tags:
+        - Gateways
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGatewayDto'
+      responses:
+        '200':
+          description: Gateway updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JSON Web Token obtained from the Identity Service
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        service:
+          type: string
+          example: payment
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The request contains invalid fields
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    Payment:
+      type: object
+      required:
+        - id
+        - organizationId
+        - eventId
+        - userId
+        - amount
+        - currency
+        - method
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        eventId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+          example: 199.90
+        currency:
+          type: string
+          default: BRL
+          example: BRL
+        fee:
+          type: number
+          format: float
+          default: 0
+        total:
+          type: number
+          format: float
+        method:
+          type: string
+          enum: [credit_card, pix, boleto]
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, refunded, chargeback]
+        gateway:
+          type: string
+          nullable: true
+        gatewayId:
+          type: string
+          nullable: true
+        installments:
+          type: integer
+          default: 1
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        refundedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Refund'
+        pixPayment:
+          $ref: '#/components/schemas/PixPayment'
+        boletoPayment:
+          $ref: '#/components/schemas/BoletoPayment'
+
+    CreatePaymentDto:
+      type: object
+      required:
+        - organizationId
+        - eventId
+        - userId
+        - amount
+        - method
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+        currency:
+          type: string
+          default: BRL
+        method:
+          type: string
+          enum: [credit_card, pix, boleto]
+        installments:
+          type: integer
+          minimum: 1
+          default: 1
+
+    Transaction:
+      type: object
+      required:
+        - id
+        - paymentId
+        - type
+        - amount
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: authorization
+        amount:
+          type: number
+          format: float
+        status:
+          type: string
+          example: completed
+        gatewayResponse:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Refund:
+      type: object
+      required:
+        - id
+        - paymentId
+        - amount
+        - status
+        - initiatedBy
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        reason:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        initiatedBy:
+          type: string
+        approvedBy:
+          type: string
+          format: uuid
+          nullable: true
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PixPayment:
+      type: object
+      required:
+        - id
+        - paymentId
+        - txid
+        - expiration
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        txid:
+          type: string
+          example: PIX1712345678ABCDEF12
+        qrCode:
+          type: string
+          nullable: true
+        qrCodeText:
+          type: string
+          nullable: true
+        expiration:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    GeneratePixResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        txid:
+          type: string
+        qrCode:
+          type: string
+        qrCodeText:
+          type: string
+        expiration:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    BoletoPayment:
+      type: object
+      required:
+        - id
+        - paymentId
+        - dueDate
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        barcode:
+          type: string
+          nullable: true
+        line:
+          type: string
+          nullable: true
+        url:
+          type: string
+          format: uri
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    GenerateBoletoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentId:
+          type: string
+          format: uuid
+        barcode:
+          type: string
+        line:
+          type: string
+        url:
+          type: string
+          format: uri
+        dueDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    GatewayConfig:
+      type: object
+      required:
+        - id
+        - organizationId
+        - gateway
+        - active
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        gateway:
+          type: string
+          enum: [stripe, asaas, mercado_pago]
+        credentials:
+          type: object
+        webhookSecret:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+          default: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateGatewayDto:
+      type: object
+      required:
+        - organizationId
+        - gateway
+        - credentials
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        gateway:
+          type: string
+          enum: [stripe, asaas, mercado_pago]
+        credentials:
+          type: object
+        webhookSecret:
+          type: string
+
+    UpdateGatewayDto:
+      type: object
+      properties:
+        credentials:
+          type: object
+        webhookSecret:
+          type: string
+        active:
+          type: boolean
+
+    WebhookPayload:
+      type: object
+      properties:
+        txid:
+          type: string
+          description: PIX transaction ID (for PIX webhook)
+        barcode:
+          type: string
+          description: Boleto barcode (for boleto webhook)
+        status:
+          type: string
+          description: Payment status update
+        additionalProperties:
+          type: object
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

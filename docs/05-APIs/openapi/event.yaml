@@ -1,0 +1,1271 @@
+openapi: 3.1.0
+info:
+  title: EventOS AI - Event Service
+  version: 1.0.0
+  description: |
+    Event management service for the EventOS AI platform.
+    Handles event creation, scheduling, room management,
+    publishing, and cancellation workflows.
+  contact:
+    name: EventOS AI Support
+    email: support@eventos.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:4002
+    description: Local development
+  - url: https://api.eventos.ai/v1
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Service health check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/events:
+    get:
+      operationId: listEvents
+      summary: List events with filters
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, cancelled, completed]
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createEvent
+      summary: Create a new event
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/events/{id}:
+    get:
+      operationId: getEvent
+      summary: Get event details
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateEvent
+      summary: Update event details
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventRequest'
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteEvent
+      summary: Delete an event
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Event deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{id}/publish:
+    post:
+      operationId: publishEvent
+      summary: Publish an event (make it public)
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Event published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{id}/cancel:
+    post:
+      operationId: cancelEvent
+      summary: Cancel an event
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Event cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{id}/duplicate:
+    post:
+      operationId: duplicateEvent
+      summary: Duplicate an event with all settings
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New name for the duplicated event
+                includeTickets:
+                  type: boolean
+                  default: false
+                includeRooms:
+                  type: boolean
+                  default: true
+                includeSchedule:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Event duplicated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/rooms:
+    get:
+      operationId: listRooms
+      summary: List rooms for an event
+      tags:
+        - Rooms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createRoom
+      summary: Create a room for an event
+      tags:
+        - Rooms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/rooms/{id}:
+    get:
+      operationId: getRoom
+      summary: Get room details
+      tags:
+        - Rooms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateRoom
+      summary: Update a room
+      tags:
+        - Rooms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoomRequest'
+      responses:
+        '200':
+          description: Room updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteRoom
+      summary: Delete a room
+      tags:
+        - Rooms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Room deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/schedules:
+    get:
+      operationId: listSchedules
+      summary: List schedules for an event
+      tags:
+        - Schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: roomId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of schedules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createSchedule
+      summary: Create a schedule entry
+      tags:
+        - Schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+      responses:
+        '201':
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/schedules/{id}:
+    get:
+      operationId: getSchedule
+      summary: Get schedule details
+      tags:
+        - Schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Schedule details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateSchedule
+      summary: Update a schedule entry
+      tags:
+        - Schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleRequest'
+      responses:
+        '200':
+          description: Schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteSchedule
+      summary: Delete a schedule entry
+      tags:
+        - Schedules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Schedule deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JSON Web Token obtained from the Identity Service
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        service:
+          type: string
+          example: event
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The request contains invalid fields
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    Event:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - organizationId
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Tech Conference 2026
+        slug:
+          type: string
+          example: tech-conference-2026
+        description:
+          type: string
+          nullable: true
+        shortDescription:
+          type: string
+          nullable: true
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        status:
+          type: string
+          enum: [draft, published, cancelled, completed]
+        eventType:
+          type: string
+          enum: [in_person, online, hybrid]
+          default: in_person
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        location:
+          $ref: '#/components/schemas/Location'
+        timezone:
+          type: string
+          default: America/Sao_Paulo
+        organizationId:
+          type: string
+          format: uuid
+        createdBy:
+          type: string
+          format: uuid
+        maxCapacity:
+          type: integer
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        settings:
+          $ref: '#/components/schemas/EventSettings'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateEventRequest:
+      type: object
+      required:
+        - name
+        - startDate
+        - endDate
+        - organizationId
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 5000
+        shortDescription:
+          type: string
+          maxLength: 300
+        bannerUrl:
+          type: string
+          format: uri
+        logoUrl:
+          type: string
+          format: uri
+        website:
+          type: string
+          format: uri
+        eventType:
+          type: string
+          enum: [in_person, online, hybrid]
+          default: in_person
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          default: America/Sao_Paulo
+        organizationId:
+          type: string
+          format: uuid
+        maxCapacity:
+          type: integer
+          minimum: 1
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        location:
+          $ref: '#/components/schemas/Location'
+        settings:
+          $ref: '#/components/schemas/EventSettings'
+
+    UpdateEventRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        description:
+          type: string
+          maxLength: 5000
+        shortDescription:
+          type: string
+          maxLength: 300
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        eventType:
+          type: string
+          enum: [in_person, online, hybrid]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        maxCapacity:
+          type: integer
+          minimum: 1
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        location:
+          $ref: '#/components/schemas/Location'
+        settings:
+          $ref: '#/components/schemas/EventSettings'
+
+    Location:
+      type: object
+      properties:
+        address:
+          type: string
+          example: Av. Paulista, 1000
+        city:
+          type: string
+          example: São Paulo
+        state:
+          type: string
+          example: SP
+        country:
+          type: string
+          example: Brasil
+        postalCode:
+          type: string
+          example: 01310-100
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        onlineUrl:
+          type: string
+          format: uri
+
+    EventSettings:
+      type: object
+      properties:
+        requireApproval:
+          type: boolean
+          default: false
+        showAttendeeList:
+          type: boolean
+          default: true
+        allowGuestCheckout:
+          type: boolean
+          default: false
+        checkinRequiresDocument:
+          type: boolean
+          default: false
+        checkinRequiresPhoto:
+          type: boolean
+          default: false
+        maxTicketsPerOrder:
+          type: integer
+          default: 10
+        saleStartDate:
+          type: string
+          format: date-time
+          nullable: true
+        saleEndDate:
+          type: string
+          format: date-time
+          nullable: true
+        cancelPolicy:
+          type: string
+          enum: [no_refund, partial_refund, full_refund]
+          default: no_refund
+
+    Room:
+      type: object
+      required:
+        - id
+        - name
+        - eventId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Main Auditorium
+        description:
+          type: string
+          nullable: true
+        capacity:
+          type: integer
+          nullable: true
+        layout:
+          type: string
+          enum: [theatre, classroom, boardroom, reception]
+          nullable: true
+        order:
+          type: integer
+          default: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateRoomRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        capacity:
+          type: integer
+          minimum: 1
+        layout:
+          type: string
+          enum: [theatre, classroom, boardroom, reception]
+        order:
+          type: integer
+          minimum: 0
+
+    UpdateRoomRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        capacity:
+          type: integer
+          minimum: 1
+          nullable: true
+        layout:
+          type: string
+          enum: [theatre, classroom, boardroom, reception]
+          nullable: true
+        order:
+          type: integer
+          minimum: 0
+
+    Schedule:
+      type: object
+      required:
+        - id
+        - eventId
+        - title
+        - startTime
+        - endTime
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          example: Opening Keynote
+        description:
+          type: string
+          nullable: true
+        speakers:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              bio:
+                type: string
+              avatarUrl:
+                type: string
+                format: uri
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: partial-time
+          example: 09:00
+        endTime:
+          type: string
+          format: partial-time
+          example: 10:00
+        type:
+          type: string
+          enum: [session, workshop, keynote, panel, networking, break]
+          default: session
+        order:
+          type: integer
+          default: 0
+        color:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateScheduleRequest:
+      type: object
+      required:
+        - title
+        - date
+        - startTime
+        - endTime
+      properties:
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+        speakers:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                maxLength: 255
+              bio:
+                type: string
+                maxLength: 1000
+              avatarUrl:
+                type: string
+                format: uri
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: partial-time
+        endTime:
+          type: string
+          format: partial-time
+        type:
+          type: string
+          enum: [session, workshop, keynote, panel, networking, break]
+          default: session
+        order:
+          type: integer
+          minimum: 0
+        color:
+          type: string
+          nullable: true
+
+    UpdateScheduleRequest:
+      type: object
+      properties:
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        speakers:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              bio:
+                type: string
+              avatarUrl:
+                type: string
+                format: uri
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: partial-time
+        endTime:
+          type: string
+          format: partial-time
+        type:
+          type: string
+          enum: [session, workshop, keynote, panel, networking, break]
+        order:
+          type: integer
+          minimum: 0
+        color:
+          type: string
+          nullable: true
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

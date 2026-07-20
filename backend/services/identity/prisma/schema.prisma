@@ -1,0 +1,123 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id              String   @id @default(uuid()) @db.Uuid
+    email           String   @unique
+    passwordHash    String   @map("password_hash")
+    name            String
+    document        String?
+    phone           String?
+    avatarUrl       String?  @map("avatar_url")
+    locale          String   @default("pt-BR")
+    timezone        String   @default("America/Sao_Paulo")
+    emailVerifiedAt DateTime? @map("email_verified_at")
+    isActive        Boolean  @default(true) @map("is_active")
+    metadata        Json     @default("{}")
+    createdAt       DateTime @default(now()) @map("created_at")
+    updatedAt       DateTime @updatedAt @map("updated_at")
+    deletedAt       DateTime? @map("deleted_at")
+
+    members OrganizationMember[]
+    orders  Order[]
+
+    @@map("users")
+}
+
+model Organization {
+    id        String   @id @default(uuid()) @db.Uuid
+    name      String
+    slug      String   @unique
+    logoUrl   String?  @map("logo_url")
+    document  String?
+    plan      String   @default("starter")
+    status    String   @default("active")
+    settings  Json     @default("{}")
+    features  Json     @default("{}")
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+    deletedAt DateTime? @map("deleted_at")
+
+    members OrganizationMember[]
+    events  Event[]
+
+    @@map("organizations")
+}
+
+model OrganizationMember {
+    id             String   @id @default(uuid()) @db.Uuid
+    organizationId String   @map("organization_id") @db.Uuid
+    userId         String   @map("user_id") @db.Uuid
+    role           String
+    permissions    Json     @default("[]")
+    joinedAt       DateTime @default(now()) @map("joined_at")
+    createdAt      DateTime @default(now()) @map("created_at")
+
+    organization Organization @relation(fields: [organizationId], references: [id])
+    user         User         @relation(fields: [userId], references: [id])
+
+    @@unique([organizationId, userId])
+    @@map("organization_members")
+}
+
+model Event {
+    id              String   @id @default(uuid()) @db.Uuid
+    organizationId  String   @map("organization_id") @db.Uuid
+    name            String
+    slug            String
+    description     String?
+    type            String
+    category        String?
+    status          String   @default("draft")
+    visibility      String   @default("public")
+    timezone        String
+    currency        String   @default("BRL")
+    language        String   @default("pt-BR")
+    startDate       DateTime @map("start_date")
+    endDate         DateTime @map("end_date")
+    capacity        Int?
+    locationName    String?  @map("location_name")
+    address         String?
+    city            String?
+    state           String?
+    country         String   @default("Brasil")
+    bannerUrl       String?  @map("banner_url")
+    logoUrl         String?  @map("logo_url")
+    settings        Json     @default("{}")
+    createdBy       String   @map("created_by") @db.Uuid
+    createdAt       DateTime @default(now()) @map("created_at")
+    updatedAt       DateTime @updatedAt @map("updated_at")
+    deletedAt       DateTime? @map("deleted_at")
+
+    organization Organization @relation(fields: [organizationId], references: [id])
+
+    @@unique([organizationId, slug])
+    @@map("events")
+}
+
+model Order {
+    id              String    @id @default(uuid()) @db.Uuid
+    organizationId  String    @map("organization_id") @db.Uuid
+    eventId         String    @map("event_id") @db.Uuid
+    userId          String    @map("user_id") @db.Uuid
+    status          String    @default("pending")
+    total           Decimal   @db.Decimal(10, 2)
+    discount        Decimal   @default(0) @db.Decimal(10, 2)
+    fee             Decimal   @default(0) @db.Decimal(10, 2)
+    netTotal        Decimal   @map("net_total") @db.Decimal(10, 2)
+    paymentMethod   String?   @map("payment_method")
+    paymentId       String?   @map("payment_id")
+    paidAt          DateTime? @map("paid_at")
+    createdAt       DateTime  @default(now()) @map("created_at")
+    updatedAt       DateTime  @updatedAt @map("updated_at")
+
+    user User @relation(fields: [userId], references: [id])
+
+    @@map("orders")
+}

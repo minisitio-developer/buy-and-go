@@ -1,0 +1,102 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Integration {
+    id             String          @id @default(uuid()) @db.Uuid
+    organizationId String          @map("organization_id") @db.Uuid
+    name           String
+    type           IntegrationType @default(import)
+    sourceType     DataSourceType  @map("source_type")
+    sourceConfig   Json            @map("source_config")
+    targetType     DataSourceType  @map("target_type")
+    targetConfig   Json            @map("target_config")
+    mapping        Json            @default("[]")
+    schedule       String?
+    enabled        Boolean         @default(true)
+    lastRunAt      DateTime?       @map("last_run_at")
+    createdAt      DateTime        @default(now()) @map("created_at")
+    updatedAt      DateTime        @updatedAt @map("updated_at")
+
+    runs           IntegrationRun[]
+
+    @@index([organizationId])
+    @@index([organizationId, type])
+    @@index([enabled])
+    @@map("integrations")
+}
+
+model IntegrationRun {
+    id               String          @id @default(uuid()) @db.Uuid
+    integrationId    String          @map("integration_id") @db.Uuid
+    status           RunStatus       @default(pending)
+    startedAt        DateTime        @default(now()) @map("started_at")
+    completedAt      DateTime?       @map("completed_at")
+    recordsProcessed Int             @default(0) @map("records_processed")
+    recordsFailed    Int             @default(0) @map("records_failed")
+    error            String?         @map("error")
+    log              Json?           @map("log")
+
+    integration      Integration     @relation(fields: [integrationId], references: [id])
+
+    @@index([integrationId])
+    @@index([integrationId, status])
+    @@index([integrationId, startedAt])
+    @@map("integration_runs")
+}
+
+model DataConnector {
+    id             String          @id @default(uuid()) @db.Uuid
+    name           String
+    organizationId String          @map("organization_id") @db.Uuid
+    type           ConnectorType   @default(api)
+    config         Json
+    createdAt      DateTime        @default(now()) @map("created_at")
+    updatedAt      DateTime        @updatedAt @map("updated_at")
+
+    @@index([organizationId])
+    @@map("data_connectors")
+}
+
+enum IntegrationType {
+    import
+    export
+    sync
+
+    @@map("integration_type")
+}
+
+enum DataSourceType {
+    csv
+    json
+    api
+    postgres
+    kafka
+
+    @@map("data_source_type")
+}
+
+enum ConnectorType {
+    csv
+    json
+    api
+    postgres
+    kafka
+
+    @@map("connector_type")
+}
+
+enum RunStatus {
+    pending
+    running
+    completed
+    failed
+    cancelled
+
+    @@map("run_status")
+}

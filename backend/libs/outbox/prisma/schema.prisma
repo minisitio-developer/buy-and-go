@@ -1,0 +1,49 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model OutboxMessage {
+    id            String   @id @default(uuid())
+    aggregateType String
+    aggregateId   String
+    eventType     String
+    data          Json
+    metadata      Json?
+    correlationId String?
+    causationId   String?
+    status        String   @default("pending") // pending, published, failed
+    retryCount    Int      @default(0)
+    maxRetries    Int      @default(5)
+    lastError     String?
+    createdAt     DateTime @default(now())
+    publishedAt   DateTime?
+    lockedAt      DateTime?
+    lockedBy      String?
+
+    @@index([status, createdAt])
+    @@index([status, lockedAt])
+    @@map("outbox_messages")
+}
+
+model InboxMessage {
+    id              String   @id
+    eventType       String
+    source          String
+    correlationId   String?
+    causationId     String?
+    payload         Json
+    status          String   @default("received") // received, processed, failed
+    processingError String?
+    receivedAt      DateTime @default(now())
+    processedAt     DateTime?
+
+    @@unique([id])
+    @@index([status])
+    @@index([eventType, status])
+    @@map("inbox_messages")
+}

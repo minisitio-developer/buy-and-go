@@ -1,0 +1,40 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model EventStream {
+    id            String   @id @default(uuid())
+    aggregateType String
+    aggregateId   String
+    version       Int
+    eventType     String
+    data          Json
+    metadata      Json?
+    correlationId String?
+    causationId   String?
+    recordedAt    DateTime @default(now())
+
+    @@unique([aggregateType, aggregateId, version])
+    @@index([aggregateType, aggregateId])
+    @@index([eventType])
+    @@index([aggregateType, aggregateId, recordedAt])
+    @@map("event_stream")
+}
+
+model Snapshot {
+    id            String   @id @default(uuid())
+    aggregateType String
+    aggregateId   String
+    version       Int
+    state         Json
+    recordedAt    DateTime @default(now())
+
+    @@unique([aggregateType, aggregateId, version])
+    @@index([aggregateType, aggregateId])
+    @@map("snapshots")
+}

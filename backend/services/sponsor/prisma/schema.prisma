@@ -1,0 +1,115 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum SponsorTier {
+    diamond
+    gold
+    silver
+    bronze
+}
+
+enum SponsorStatus {
+    active
+    inactive
+    pending
+    cancelled
+}
+
+enum SponsorBoothStatus {
+    active
+    reserved
+    maintenance
+    inactive
+}
+
+enum PaymentStatus {
+    pending
+    paid
+    overdue
+    cancelled
+}
+
+model Sponsor {
+    id             String       @id @default(uuid()) @db.Uuid
+    organizationId String       @map("organization_id") @db.Uuid
+    eventId        String       @map("event_id") @db.Uuid
+    name           String
+    logoUrl        String?      @map("logo_url")
+    description    String?
+    tier           SponsorTier  @default(silver)
+    status         SponsorStatus @default(active)
+    contractUrl    String?      @map("contract_url")
+    value          Decimal?     @map("value") @db.Decimal(12, 2)
+    signedAt       DateTime?    @map("signed_at")
+    createdAt      DateTime     @default(now()) @map("created_at")
+    updatedAt      DateTime     @updatedAt @map("updated_at")
+
+    booths   SponsorBooth[]
+    metrics  SponsorMetric[]
+    payments SponsorPayment[]
+
+    @@index([eventId])
+    @@index([organizationId])
+    @@index([tier])
+    @@map("sponsors")
+}
+
+model SponsorBooth {
+    id        String            @id @default(uuid()) @db.Uuid
+    sponsorId String            @map("sponsor_id") @db.Uuid
+    eventId   String            @map("event_id") @db.Uuid
+    name      String
+    location  String?
+    size      String?
+    status    SponsorBoothStatus @default(active)
+    checkins  Int               @default(0)
+    createdAt DateTime          @default(now()) @map("created_at")
+
+    sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+
+    @@index([sponsorId])
+    @@index([eventId])
+    @@map("sponsor_booths")
+}
+
+model SponsorMetric {
+    id         String   @id @default(uuid()) @db.Uuid
+    sponsorId  String   @map("sponsor_id") @db.Uuid
+    eventId    String   @map("event_id") @db.Uuid
+    visitors   Int      @default(0)
+    avgStayTime Float?  @map("avg_stay_time")
+    revisitRate Float?  @map("revisit_rate")
+    peakHour   Int?     @map("peak_hour")
+    profile    Json     @default("{}")
+    recordedAt DateTime @default(now()) @map("recorded_at")
+
+    sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+
+    @@index([sponsorId])
+    @@index([eventId])
+    @@index([recordedAt])
+    @@map("sponsor_metrics")
+}
+
+model SponsorPayment {
+    id        String        @id @default(uuid()) @db.Uuid
+    sponsorId String        @map("sponsor_id") @db.Uuid
+    installment Int         @default(1)
+    value     Decimal       @map("value") @db.Decimal(12, 2)
+    dueDate   DateTime      @map("due_date")
+    paidAt    DateTime?     @map("paid_at")
+    status    PaymentStatus @default(pending)
+    createdAt DateTime      @default(now()) @map("created_at")
+
+    sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+
+    @@index([sponsorId])
+    @@index([status])
+    @@map("sponsor_payments")
+}

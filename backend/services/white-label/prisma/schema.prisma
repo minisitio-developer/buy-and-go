@@ -1,0 +1,62 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model AppTemplate {
+    id           String   @id @default(uuid()) @db.Uuid
+    name         String
+    description  String?
+    platform     String   @default("expo")
+    baseTemplate String
+    configSchema Json     @default("{}")
+    createdAt    DateTime @default(now()) @map("created_at")
+    updatedAt    DateTime @updatedAt @map("updated_at")
+
+    instances    AppInstance[]
+
+    @@map("app_templates")
+}
+
+model AppInstance {
+    id              String      @id @default(uuid()) @db.Uuid
+    eventId         String      @map("event_id") @db.Uuid
+    organizationId  String      @map("organization_id") @db.Uuid
+    name            String
+    appTemplateId   String      @map("app_template_id") @db.Uuid
+    theme           Json        @default("{}")
+    modules         Json        @default("[]")
+    config          Json        @default("{}")
+    status          String      @default("building")
+    buildUrl        String?     @map("build_url")
+    appStoreUrl     String?     @map("app_store_url")
+    playStoreUrl    String?     @map("play_store_url")
+    qrCodeUrl       String?     @map("qr_code_url")
+    createdAt       DateTime    @default(now()) @map("created_at")
+
+    template        AppTemplate @relation(fields: [appTemplateId], references: [id])
+    builds          AppBuild[]
+
+    @@index([eventId])
+    @@index([organizationId])
+    @@map("app_instances")
+}
+
+model AppBuild {
+    id             String   @id @default(uuid()) @db.Uuid
+    appInstanceId  String   @map("app_instance_id") @db.Uuid
+    version        String
+    status         String   @default("pending")
+    buildLog       Json?    @map("build_log")
+    artifactUrl    String?  @map("artifact_url")
+    createdAt      DateTime @default(now()) @map("created_at")
+
+    appInstance    AppInstance @relation(fields: [appInstanceId], references: [id])
+
+    @@index([appInstanceId])
+    @@map("app_builds")
+}

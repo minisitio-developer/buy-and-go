@@ -1,0 +1,24 @@
+{
+    "name": "@eventos-ai/saga",
+    "version": "0.0.1",
+    "private": true,
+    "main": "src/index.ts",
+    "types": "src/index.ts",
+    "dependencies": {
+        "@nestjs/common": "^10.3.0",
+        "@nestjs/core": "^10.3.0",
+        "@prisma/client": "^5.10.0",
+        "@eventos-ai/messaging": "*",
+        "@eventos-ai/event-store": "*",
+        "kafkajs": "^2.2.4",
+        "reflect-metadata": "^0.2.1",
+        "rxjs": "^7.8.1",
+        "uuid": "^9.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.0",
+        "@types/uuid": "^9.0.0",
+        "prisma": "^5.10.0",
+        "typescript": "^5.4.0"
+    }
+}

@@ -1,0 +1,1002 @@
+openapi: 3.1.0
+info:
+  title: Sponsor Service API
+  version: 1.0.0
+  description: |
+    Gestão de patrocinadores, estandes e métricas para eventos.
+    Permite cadastro de patrocinadores, gerenciamento de estandes,
+    registro de check-ins, coleta de métricas e cálculo de ROI.
+  contact:
+    name: EventOS AI Support
+    email: support@eventos.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3006/v1
+    description: Local development
+  - url: https://api.eventos.ai/v1/sponsor
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Service health check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sponsors:
+    get:
+      operationId: listSponsors
+      summary: List sponsors with filters
+      tags:
+        - Sponsors
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: eventId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: tier
+          in: query
+          schema:
+            type: string
+            enum: [diamond, gold, silver, bronze]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, pending, cancelled]
+      responses:
+        '200':
+          description: List of sponsors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sponsor'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createSponsor
+      summary: Create a new sponsor
+      tags:
+        - Sponsors
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSponsorDto'
+      responses:
+        '201':
+          description: Sponsor created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sponsor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /sponsors/{id}:
+    get:
+      operationId: getSponsor
+      summary: Get sponsor by ID
+      tags:
+        - Sponsors
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sponsor details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sponsor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateSponsor
+      summary: Update sponsor details
+      tags:
+        - Sponsors
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSponsorDto'
+      responses:
+        '200':
+          description: Sponsor updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sponsor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteSponsor
+      summary: Delete a sponsor
+      tags:
+        - Sponsors
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sponsor deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /events/{eventId}/sponsors:
+    get:
+      operationId: listSponsorsByEvent
+      summary: List sponsors by event
+      tags:
+        - Sponsors
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tier
+          in: query
+          schema:
+            type: string
+            enum: [diamond, gold, silver, bronze]
+      responses:
+        '200':
+          description: List of sponsors for the event
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sponsor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /booths:
+    get:
+      operationId: listBooths
+      summary: List booths with filters
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: eventId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: sponsorId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of booths
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SponsorBooth'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createBooth
+      summary: Create a new booth
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoothDto'
+      responses:
+        '201':
+          description: Booth created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorBooth'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /booths/{id}:
+    get:
+      operationId: getBooth
+      summary: Get booth by ID
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Booth details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorBooth'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateBooth
+      summary: Update a booth
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBoothDto'
+      responses:
+        '200':
+          description: Booth updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorBooth'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteBooth
+      summary: Delete a booth
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Booth deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /events/{eventId}/booths:
+    get:
+      operationId: listBoothsByEvent
+      summary: List booths by event
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of booths for the event
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SponsorBooth'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /booths/{id}/checkin:
+    post:
+      operationId: registerBoothCheckin
+      summary: Register a check-in at a booth
+      tags:
+        - Booths
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Check-in registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorBooth'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /metrics:
+    post:
+      operationId: createMetric
+      summary: Create a metric entry for a sponsor
+      tags:
+        - Metrics
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMetricDto'
+      responses:
+        '201':
+          description: Metric entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorMetric'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /metrics/{sponsorId}:
+    get:
+      operationId: getSponsorMetrics
+      summary: Get metrics for a sponsor
+      tags:
+        - Metrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sponsorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Sponsor metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sponsorId:
+                    type: string
+                    format: uuid
+                  aggregated:
+                    type: object
+                    nullable: true
+                    properties:
+                      totalVisitors:
+                        type: integer
+                      avgStayTime:
+                        type: number
+                        format: float
+                      avgRevisitRate:
+                        type: number
+                        format: float
+                      records:
+                        type: integer
+                      periodStart:
+                        type: string
+                        format: date-time
+                      periodEnd:
+                        type: string
+                        format: date-time
+                  metrics:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SponsorMetric'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /metrics/{sponsorId}/roi:
+    get:
+      operationId: getSponsorRoi
+      summary: Calculate ROI for a sponsor
+      tags:
+        - Metrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sponsorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ROI report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoiReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JSON Web Token obtained from the Identity Service
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        service:
+          type: string
+          example: sponsor
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The request contains invalid fields
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    Sponsor:
+      type: object
+      required:
+        - id
+        - organizationId
+        - eventId
+        - name
+        - tier
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Acme Corp
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        tier:
+          type: string
+          enum: [diamond, gold, silver, bronze]
+        status:
+          type: string
+          enum: [active, inactive, pending, cancelled]
+        contractUrl:
+          type: string
+          format: uri
+          nullable: true
+        value:
+          type: number
+          format: float
+          nullable: true
+        signedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        booths:
+          type: array
+          items:
+            $ref: '#/components/schemas/SponsorBooth'
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/SponsorMetric'
+
+    CreateSponsorDto:
+      type: object
+      required:
+        - organizationId
+        - eventId
+        - name
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        logoUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+          maxLength: 2000
+        tier:
+          type: string
+          enum: [diamond, gold, silver, bronze]
+          default: silver
+        contractUrl:
+          type: string
+          format: uri
+        value:
+          type: number
+          format: float
+          minimum: 0
+        signedAt:
+          type: string
+          format: date-time
+
+    UpdateSponsorDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        tier:
+          type: string
+          enum: [diamond, gold, silver, bronze]
+        status:
+          type: string
+          enum: [active, inactive, pending, cancelled]
+        contractUrl:
+          type: string
+          format: uri
+          nullable: true
+        value:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+        signedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SponsorBooth:
+      type: object
+      required:
+        - id
+        - sponsorId
+        - eventId
+        - name
+        - status
+        - checkins
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        sponsorId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Stand A-12
+        location:
+          type: string
+          nullable: true
+        size:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, reserved, maintenance, inactive]
+        checkins:
+          type: integer
+          default: 0
+        createdAt:
+          type: string
+          format: date-time
+        sponsor:
+          type: object
+          properties:
+            name:
+              type: string
+            tier:
+              type: string
+            logoUrl:
+              type: string
+              format: uri
+
+    CreateBoothDto:
+      type: object
+      required:
+        - sponsorId
+        - eventId
+        - name
+      properties:
+        sponsorId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 500
+        size:
+          type: string
+        status:
+          type: string
+          enum: [active, reserved, maintenance, inactive]
+          default: active
+
+    UpdateBoothDto:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 500
+          nullable: true
+        size:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, reserved, maintenance, inactive]
+
+    SponsorMetric:
+      type: object
+      required:
+        - id
+        - sponsorId
+        - eventId
+        - visitors
+        - recordedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        sponsorId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        visitors:
+          type: integer
+          default: 0
+        avgStayTime:
+          type: number
+          format: float
+          nullable: true
+        revisitRate:
+          type: number
+          format: float
+          nullable: true
+        peakHour:
+          type: integer
+          nullable: true
+        profile:
+          type: object
+        recordedAt:
+          type: string
+          format: date-time
+
+    CreateMetricDto:
+      type: object
+      required:
+        - sponsorId
+        - eventId
+      properties:
+        sponsorId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        visitors:
+          type: integer
+          minimum: 0
+          default: 0
+        avgStayTime:
+          type: number
+          format: float
+          minimum: 0
+        revisitRate:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        peakHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        profile:
+          type: object
+
+    RoiReport:
+      type: object
+      required:
+        - sponsorId
+        - sponsorName
+        - totalInvestment
+        - totalVisitors
+        - costPerVisitor
+        - paymentCount
+        - metricRecords
+      properties:
+        sponsorId:
+          type: string
+          format: uuid
+        sponsorName:
+          type: string
+        totalInvestment:
+          type: number
+          format: float
+        totalVisitors:
+          type: integer
+        costPerVisitor:
+          type: number
+          format: float
+        paymentCount:
+          type: integer
+        metricRecords:
+          type: integer
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

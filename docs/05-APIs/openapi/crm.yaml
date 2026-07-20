@@ -1,0 +1,1342 @@
+openapi: 3.1.0
+info:
+  title: EventOS AI - CRM Service
+  version: 1.0.0
+  description: |
+    Customer Relationship Management service for the EventOS AI platform.
+    Handles sales pipelines, stages, deal tracking, and contact management
+    for event organizers.
+  contact:
+    name: EventOS AI Support
+    email: support@eventos.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:4005
+    description: Local development
+  - url: https://api.eventos.ai/v1
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Service health check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/crm/pipelines:
+    get:
+      operationId: listPipelines
+      summary: List sales pipelines
+      tags:
+        - Pipelines
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of pipelines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pipeline'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createPipeline
+      summary: Create a new sales pipeline
+      tags:
+        - Pipelines
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePipelineRequest'
+      responses:
+        '201':
+          description: Pipeline created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/crm/pipelines/{id}:
+    get:
+      operationId: getPipeline
+      summary: Get pipeline details with stages
+      tags:
+        - Pipelines
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pipeline details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updatePipeline
+      summary: Update a pipeline
+      tags:
+        - Pipelines
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePipelineRequest'
+      responses:
+        '200':
+          description: Pipeline updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deletePipeline
+      summary: Delete a pipeline and all its stages
+      tags:
+        - Pipelines
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Pipeline deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/crm/pipelines/{id}/stages:
+    get:
+      operationId: listStages
+      summary: List stages in a pipeline
+      tags:
+        - Stages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of stages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Stage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createStage
+      summary: Create a new stage in a pipeline
+      tags:
+        - Stages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStageRequest'
+      responses:
+        '201':
+          description: Stage created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/crm/pipelines/stages/{id}:
+    patch:
+      operationId: updateStage
+      summary: Update a stage's name or order
+      tags:
+        - Stages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStageRequest'
+      responses:
+        '200':
+          description: Stage updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteStage
+      summary: Delete a stage (deals move to previous stage)
+      tags:
+        - Stages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Stage deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/crm/deals:
+    get:
+      operationId: listDeals
+      summary: List deals with filters
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: pipelineId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: stageId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, won, lost]
+        - name: contactId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of deals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deal'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createDeal
+      summary: Create a new deal
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDealRequest'
+      responses:
+        '201':
+          description: Deal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/crm/deals/{id}:
+    get:
+      operationId: getDeal
+      summary: Get deal details
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateDeal
+      summary: Update a deal
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDealRequest'
+      responses:
+        '200':
+          description: Deal updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteDeal
+      summary: Delete a deal
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deal deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/crm/deals/{id}/move:
+    post:
+      operationId: moveDeal
+      summary: Move a deal to a different stage
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - stageId
+              properties:
+                stageId:
+                  type: string
+                  format: uuid
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Deal moved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/crm/deals/{id}/close:
+    post:
+      operationId: closeDeal
+      summary: Close a deal as won or lost
+      tags:
+        - Deals
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - outcome
+              properties:
+                outcome:
+                  type: string
+                  enum: [won, lost]
+                reason:
+                  type: string
+                  maxLength: 500
+                wonAmount:
+                  type: number
+                  format: float
+                  description: Actual closed amount (if won)
+      responses:
+        '200':
+          description: Deal closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/crm/contacts:
+    get:
+      operationId: listContacts
+      summary: List contacts with filters
+      tags:
+        - Contacts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          schema:
+            type: string
+            description: Comma-separated list of tags
+      responses:
+        '200':
+          description: List of contacts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createContact
+      summary: Create a new contact
+      tags:
+        - Contacts
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '201':
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/crm/contacts/{id}:
+    get:
+      operationId: getContact
+      summary: Get contact details
+      tags:
+        - Contacts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Contact details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateContact
+      summary: Update a contact
+      tags:
+        - Contacts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactRequest'
+      responses:
+        '200':
+          description: Contact updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteContact
+      summary: Delete a contact
+      tags:
+        - Contacts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Contact deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JSON Web Token obtained from the Identity Service
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        service:
+          type: string
+          example: crm
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The request contains invalid fields
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    Pipeline:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - stages
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Event Sales Pipeline
+        description:
+          type: string
+          nullable: true
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stage'
+        isDefault:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePipelineRequest:
+      type: object
+      required:
+        - organizationId
+        - name
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 2
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 500
+        isDefault:
+          type: boolean
+          default: false
+
+    UpdatePipelineRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        isDefault:
+          type: boolean
+
+    Stage:
+      type: object
+      required:
+        - id
+        - pipelineId
+        - name
+        - order
+      properties:
+        id:
+          type: string
+          format: uuid
+        pipelineId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Lead Captured
+        order:
+          type: integer
+          example: 1
+        color:
+          type: string
+          nullable: true
+          example: '#3B82F6'
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+          default: 0
+          description: Win probability percentage
+        dealsCount:
+          type: integer
+          default: 0
+        dealsValue:
+          type: number
+          format: float
+          default: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateStageRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        order:
+          type: integer
+          minimum: 0
+        color:
+          type: string
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    UpdateStageRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        order:
+          type: integer
+          minimum: 0
+        color:
+          type: string
+          nullable: true
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    Deal:
+      type: object
+      required:
+        - id
+        - organizationId
+        - pipelineId
+        - stageId
+        - title
+        - value
+        - currency
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        pipelineId:
+          type: string
+          format: uuid
+        stageId:
+          type: string
+          format: uuid
+        stageName:
+          type: string
+        contactId:
+          type: string
+          format: uuid
+          nullable: true
+        contactName:
+          type: string
+          nullable: true
+        title:
+          type: string
+          example: 500 tickets for Tech Summit
+        description:
+          type: string
+          nullable: true
+        value:
+          type: number
+          format: float
+          example: 25000.00
+        currency:
+          type: string
+          default: BRL
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+        expectedCloseDate:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [open, won, lost]
+        wonAmount:
+          type: number
+          format: float
+          nullable: true
+        lostReason:
+          type: string
+          nullable: true
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        eventId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        lastActivityAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateDealRequest:
+      type: object
+      required:
+        - organizationId
+        - pipelineId
+        - stageId
+        - title
+        - value
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        pipelineId:
+          type: string
+          format: uuid
+        stageId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+        value:
+          type: number
+          format: float
+          minimum: 0
+        currency:
+          type: string
+          default: BRL
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+        expectedCloseDate:
+          type: string
+          format: date
+          nullable: true
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        eventId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+
+    UpdateDealRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        value:
+          type: number
+          format: float
+          minimum: 0
+        currency:
+          type: string
+        probability:
+          type: integer
+          minimum: 0
+          maximum: 100
+        expectedCloseDate:
+          type: string
+          format: date
+          nullable: true
+        contactId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        eventId:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    Contact:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - email
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Maria Silva
+        email:
+          type: string
+          format: email
+          example: maria@example.com
+        phone:
+          type: string
+          nullable: true
+        mobile:
+          type: string
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        customFields:
+          type: object
+          nullable: true
+        dealCount:
+          type: integer
+          default: 0
+        totalDealValue:
+          type: number
+          format: float
+          default: 0
+        lastContactedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateContactRequest:
+      type: object
+      required:
+        - organizationId
+        - name
+        - email
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        mobile:
+          type: string
+        company:
+          type: string
+          maxLength: 255
+        jobTitle:
+          type: string
+          maxLength: 255
+        avatarUrl:
+          type: string
+          format: uri
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        notes:
+          type: string
+          maxLength: 2000
+        tags:
+          type: array
+          items:
+            type: string
+        customFields:
+          type: object
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        mobile:
+          type: string
+          nullable: true
+        company:
+          type: string
+          maxLength: 255
+          nullable: true
+        jobTitle:
+          type: string
+          maxLength: 255
+          nullable: true
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        customFields:
+          type: object
+          nullable: true
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

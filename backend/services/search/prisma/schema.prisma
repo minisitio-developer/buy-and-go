@@ -1,0 +1,23 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model SearchIndex {
+    id           String   @id @default(uuid()) @db.Uuid
+    name         String
+    documentType String   @map("document_type")
+    documentId   String   @map("document_id")
+    content      Json
+    createdAt    DateTime @default(now()) @map("created_at")
+    updatedAt    DateTime @updatedAt @map("updated_at")
+
+    @@unique([documentType, documentId])
+    @@index([documentType])
+    @@index([name])
+    @@map("search_index")
+}

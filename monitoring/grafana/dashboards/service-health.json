@@ -1,0 +1,56 @@
+{
+  "title": "EventOS AI - Service Health",
+  "uid": "service-health",
+  "version": 1,
+  "timezone": "America/Sao_Paulo",
+  "panels": [
+    {
+      "title": "HTTP Request Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "rate(http_requests_total[5m])", "legendFormat": "{{service}}" }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "rate(http_requests_total{status=~\"5..\"}[5m])", "legendFormat": "{{service}}" }
+      ]
+    },
+    {
+      "title": "P95 Latency",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))", "legendFormat": "{{service}}" }
+      ]
+    },
+    {
+      "title": "CPU Usage",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum(rate(container_cpu_usage_seconds_total[5m]))" }
+      ]
+    },
+    {
+      "title": "Memory Usage",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        { "expr": "sum(container_memory_usage_bytes)" }
+      ]
+    },
+    {
+      "title": "Active Check-ins",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "targets": [
+        { "expr": "sum(checkins_total)" }
+      ]
+    }
+  ]
+}

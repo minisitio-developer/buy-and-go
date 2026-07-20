@@ -1,0 +1,88 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum WorkflowStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    FAILED
+    SKIPPED
+}
+
+model Workflow {
+    id             String   @id @default(uuid()) @db.Uuid
+    organizationId String   @map("organization_id") @db.Uuid
+    name           String
+    description    String?
+    trigger        String   @default("event")
+    triggerConfig  Json     @default("{}") @map("trigger_config")
+    enabled        Boolean  @default(true)
+    createdAt      DateTime @default(now()) @map("created_at")
+    updatedAt      DateTime @updatedAt @map("updated_at")
+
+    steps       WorkflowStep[]
+    executions  WorkflowExecution[]
+
+    @@index([organizationId])
+    @@index([enabled])
+    @@map("workflows")
+}
+
+model WorkflowStep {
+    id         String @id @default(uuid()) @db.Uuid
+    workflowId String @map("workflow_id") @db.Uuid
+    type       String
+    config     Json   @default("{}")
+    order      Int
+    dependsOn  Json?  @map("depends_on")
+
+    workflow   Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+    executions WorkflowExecutionStep[]
+
+    @@index([workflowId])
+    @@index([workflowId, order])
+    @@map("workflow_steps")
+}
+
+model WorkflowExecution {
+    id           String         @id @default(uuid()) @db.Uuid
+    workflowId   String         @map("workflow_id") @db.Uuid
+    status       WorkflowStatus @default(PENDING)
+    triggerEvent Json?          @map("trigger_event")
+    startedAt    DateTime?      @map("started_at")
+    completedAt  DateTime?      @map("completed_at")
+    error        String?
+    createdAt    DateTime       @default(now()) @map("created_at")
+
+    workflow     Workflow               @relation(fields: [workflowId], references: [id])
+    steps        WorkflowExecutionStep[]
+
+    @@index([workflowId])
+    @@index([status])
+    @@index([workflowId, status])
+    @@map("workflow_executions")
+}
+
+model WorkflowExecutionStep {
+    id          String         @id @default(uuid()) @db.Uuid
+    executionId String         @map("execution_id") @db.Uuid
+    stepId      String         @map("step_id") @db.Uuid
+    status      WorkflowStatus @default(PENDING)
+    input       Json?          @map("input")
+    output      Json?          @map("output")
+    startedAt   DateTime?      @map("started_at")
+    completedAt DateTime?      @map("completed_at")
+    error       String?
+
+    execution  WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+    @@index([executionId])
+    @@index([stepId])
+    @@map("workflow_execution_steps")
+}

@@ -1,0 +1,98 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Product {
+    id             String   @id @default(uuid()) @db.Uuid
+    organizationId String   @map("organization_id") @db.Uuid
+    eventId        String?  @map("event_id") @db.Uuid
+    type           String   @default("product")
+    name           String
+    description    String?
+    price          Decimal  @db.Decimal(10, 2)
+    currency       String   @default("BRL")
+    status         String   @default("active")
+    media          Json?
+    metadata       Json     @default("{}")
+    createdAt      DateTime @default(now()) @map("created_at")
+    updatedAt      DateTime @updatedAt @map("updated_at")
+
+    reviews       Review[]
+    downloadables Downloadable[]
+
+    @@index([organizationId])
+    @@index([eventId])
+    @@index([type])
+    @@index([status])
+    @@map("products")
+}
+
+model Order {
+    id             String   @id @default(uuid()) @db.Uuid
+    organizationId String   @map("organization_id") @db.Uuid
+    buyerId        String   @map("buyer_id") @db.Uuid
+    items          Json
+    total          Decimal  @db.Decimal(10, 2)
+    status         String   @default("pending")
+    paymentMethod  String   @default("stripe")
+    paymentId      String?  @map("payment_id")
+    createdAt      DateTime @default(now()) @map("created_at")
+
+    @@index([organizationId])
+    @@index([buyerId])
+    @@index([status])
+    @@map("orders")
+}
+
+model Subscription {
+    id                String   @id @default(uuid()) @db.Uuid
+    organizationId    String   @map("organization_id") @db.Uuid
+    participantId     String   @map("participant_id") @db.Uuid
+    planId            String   @map("plan_id")
+    status            String   @default("active")
+    currentPeriodStart DateTime @map("current_period_start")
+    currentPeriodEnd   DateTime @map("current_period_end")
+    createdAt         DateTime @default(now()) @map("created_at")
+
+    @@index([organizationId])
+    @@index([participantId])
+    @@index([planId])
+    @@index([status])
+    @@map("subscriptions")
+}
+
+model Review {
+    id          String   @id @default(uuid()) @db.Uuid
+    productId   String   @map("product_id") @db.Uuid
+    participantId String @map("participant_id") @db.Uuid
+    rating      Int
+    comment     String?
+    createdAt   DateTime @default(now()) @map("created_at")
+
+    product     Product  @relation(fields: [productId], references: [id])
+
+    @@unique([productId, participantId])
+    @@index([productId])
+    @@index([participantId])
+    @@map("reviews")
+}
+
+model Downloadable {
+    id        String   @id @default(uuid()) @db.Uuid
+    productId String   @map("product_id") @db.Uuid
+    fileUrl   String   @map("file_url")
+    fileSize  Int      @default(0) @map("file_size")
+    fileType  String   @default("application/octet-stream") @map("file_type")
+    title     String
+    sortOrder Int      @default(0) @map("sort_order")
+
+    product   Product  @relation(fields: [productId], references: [id])
+
+    @@index([productId])
+    @@map("downloadables")
+}

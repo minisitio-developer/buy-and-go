@@ -1,0 +1,1039 @@
+openapi: 3.1.0
+info:
+  title: EventOS AI - Check-in Service
+  version: 1.0.0
+  description: |
+    Check-in and attendance management service for the EventOS AI platform.
+    Handles attendee verification, on-site check-in, manual check-in,
+    attendee CRUD, batch operations, and offline sync.
+  contact:
+    name: EventOS AI Support
+    email: support@eventos.ai
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:4004
+    description: Local development
+  - url: https://api.eventos.ai/v1
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Service health check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/check-in:
+    post:
+      operationId: checkInAttendee
+      summary: Check in an attendee (QR code scan)
+      tags:
+        - Check-in
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInRequest'
+      responses:
+        '200':
+          description: Check-in successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckInResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Already checked in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/check-in/manual:
+    post:
+      operationId: manualCheckIn
+      summary: Manual check-in (by document or name search)
+      tags:
+        - Check-in
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualCheckInRequest'
+      responses:
+        '200':
+          description: Manual check-in successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckInResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Already checked in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/events/{eventId}/check-ins:
+    get:
+      operationId: listCheckIns
+      summary: List all check-ins for an event
+      tags:
+        - Check-in
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of check-ins
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CheckIn'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/check-ins/stats:
+    get:
+      operationId: getCheckInStats
+      summary: Get check-in statistics for an event
+      tags:
+        - Check-in
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Check-in statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckInStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/attendees:
+    get:
+      operationId: listAttendees
+      summary: List attendees for an event
+      tags:
+        - Attendees
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [registered, checked_in, cancelled]
+        - name: ticketTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of attendees
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Attendee'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createAttendee
+      summary: Register a new attendee manually
+      tags:
+        - Attendees
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttendeeRequest'
+      responses:
+        '201':
+          description: Attendee created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendee'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/attendees/{id}:
+    get:
+      operationId: getAttendee
+      summary: Get attendee details
+      tags:
+        - Attendees
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Attendee details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendee'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateAttendee
+      summary: Update attendee information
+      tags:
+        - Attendees
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAttendeeRequest'
+      responses:
+        '200':
+          description: Attendee updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendee'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteAttendee
+      summary: Remove an attendee from the event
+      tags:
+        - Attendees
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Attendee removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/events/{eventId}/attendees/batch:
+    post:
+      operationId: batchCreateAttendees
+      summary: Register multiple attendees in batch
+      tags:
+        - Attendees
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchAttendeeRequest'
+      responses:
+        '201':
+          description: Attendees created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: integer
+                  failed:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        row:
+                          type: integer
+                        message:
+                          type: string
+                  attendees:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Attendee'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/sync/events/{eventId}:
+    get:
+      operationId: getSyncData
+      summary: Get full event data for offline sync
+      tags:
+        - Sync
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lastSync
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Only return changes since this timestamp
+      responses:
+        '200':
+          description: Sync data package
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: '#/components/schemas/SyncEvent'
+                  attendees:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncAttendee'
+                  checkIns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncCheckIn'
+                  syncToken:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/sync/check-ins:
+    post:
+      operationId: syncCheckIns
+      summary: Upload offline check-ins for sync
+      tags:
+        - Sync
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - eventId
+                - checkIns
+              properties:
+                eventId:
+                  type: string
+                  format: uuid
+                lastSyncToken:
+                  type: string
+                checkIns:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - attendeeId
+                      - checkedInAt
+                      - deviceId
+                    properties:
+                      attendeeId:
+                        type: string
+                        format: uuid
+                      checkedInAt:
+                        type: string
+                        format: date-time
+                      deviceId:
+                        type: string
+                      latitude:
+                        type: number
+                        format: float
+                      longitude:
+                        type: number
+                        format: float
+                      notes:
+                        type: string
+      responses:
+        '200':
+          description: Check-ins synced
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: integer
+                  duplicates:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        attendeeId:
+                          type: string
+                        message:
+                          type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JSON Web Token obtained from the Identity Service
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized - missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        service:
+          type: string
+          example: checkin
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The request contains invalid fields
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    CheckInRequest:
+      type: object
+      required:
+        - eventId
+        - ticketCode
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        ticketCode:
+          type: string
+          description: QR code content or ticket UUID
+        deviceId:
+          type: string
+          description: Device identifier performing the check-in
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+
+    ManualCheckInRequest:
+      type: object
+      required:
+        - eventId
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        document:
+          type: string
+          description: CPF/RG or other document number
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        orderId:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+        notes:
+          type: string
+
+    CheckInResponse:
+      type: object
+      required:
+        - id
+        - attendeeId
+        - attendeeName
+        - ticketTypeName
+        - checkedInAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        attendeeId:
+          type: string
+          format: uuid
+        attendeeName:
+          type: string
+        attendeeEmail:
+          type: string
+          format: email
+        ticketTypeName:
+          type: string
+        orderId:
+          type: string
+          format: uuid
+        checkedInAt:
+          type: string
+          format: date-time
+        alreadyCheckedIn:
+          type: boolean
+          description: True if the attendee was already checked in
+
+    CheckIn:
+      type: object
+      required:
+        - id
+        - attendeeId
+        - eventId
+        - checkedInAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        attendeeId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        attendeeName:
+          type: string
+        attendeeEmail:
+          type: string
+        ticketTypeName:
+          type: string
+        ticketCode:
+          type: string
+        deviceId:
+          type: string
+          nullable: true
+        method:
+          type: string
+          enum: [qr_code, manual, batch, sync]
+        checkedInAt:
+          type: string
+          format: date-time
+        synced:
+          type: boolean
+          default: true
+
+    CheckInStats:
+      type: object
+      required:
+        - eventId
+        - totalAttendees
+        - totalCheckedIn
+        - checkInRate
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        totalAttendees:
+          type: integer
+        totalCheckedIn:
+          type: integer
+        totalRegistered:
+          type: integer
+        totalCancelled:
+          type: integer
+        checkInRate:
+          type: number
+          format: float
+          description: Percentage of attendees checked in
+        byTicketType:
+          type: array
+          items:
+            type: object
+            properties:
+              ticketTypeId:
+                type: string
+                format: uuid
+              ticketTypeName:
+                type: string
+              total:
+                type: integer
+              checkedIn:
+                type: integer
+        hourlyBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: string
+                format: partial-time
+              count:
+                type: integer
+        lastUpdated:
+          type: string
+          format: date-time
+
+    Attendee:
+      type: object
+      required:
+        - id
+        - eventId
+        - name
+        - email
+        - ticketTypeId
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        ticketTypeId:
+          type: string
+          format: uuid
+        ticketTypeName:
+          type: string
+        ticketCode:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        document:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        customFields:
+          type: object
+          nullable: true
+        status:
+          type: string
+          enum: [registered, checked_in, cancelled]
+        checkedInAt:
+          type: string
+          format: date-time
+          nullable: true
+        checkInId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateAttendeeRequest:
+      type: object
+      required:
+        - name
+        - email
+        - ticketTypeId
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        document:
+          type: string
+        gender:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        company:
+          type: string
+          maxLength: 255
+        jobTitle:
+          type: string
+          maxLength: 255
+        ticketTypeId:
+          type: string
+          format: uuid
+        customFields:
+          type: object
+
+    UpdateAttendeeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        document:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        company:
+          type: string
+          maxLength: 255
+          nullable: true
+        jobTitle:
+          type: string
+          maxLength: 255
+          nullable: true
+        ticketTypeId:
+          type: string
+          format: uuid
+        customFields:
+          type: object
+          nullable: true
+
+    BatchAttendeeRequest:
+      type: object
+      required:
+        - attendees
+      properties:
+        attendees:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/CreateAttendeeRequest'
+        ignoreDuplicates:
+          type: boolean
+          default: false
+
+    SyncEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rooms:
+          type: array
+          items:
+            type: object
+        ticketTypes:
+          type: array
+          items:
+            type: object
+
+    SyncAttendee:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        ticketCode:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    SyncCheckIn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        attendeeId:
+          type: string
+          format: uuid
+        checkedInAt:
+          type: string
+          format: date-time
+        deviceId:
+          type: string
+        method:
+          type: string
+        synced:
+          type: boolean
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

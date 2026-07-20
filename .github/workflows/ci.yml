@@ -1,0 +1,89 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [identity, event, ticket, checkin, crm, sponsor, payment]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --workspace=backend/services/${{ matrix.service }}
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [identity, event, ticket, checkin, crm, sponsor, payment]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test --workspace=backend/services/${{ matrix.service }}
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          JWT_SECRET: test-secret
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [identity, event, ticket, checkin, crm, sponsor, payment, ai]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: backend/services/${{ matrix.service }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/eventos-ai/${{ matrix.service }}:latest
+            ${{ env.REGISTRY }}/eventos-ai/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl set image deployment/identity-svc identity-svc=${{ env.REGISTRY }}/eventos-ai/identity:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/event-svc event-svc=${{ env.REGISTRY }}/eventos-ai/event:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/ticket-svc ticket-svc=${{ env.REGISTRY }}/eventos-ai/ticket:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/checkin-svc checkin-svc=${{ env.REGISTRY }}/eventos-ai/checkin:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/crm-svc crm-svc=${{ env.REGISTRY }}/eventos-ai/crm:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/sponsor-svc sponsor-svc=${{ env.REGISTRY }}/eventos-ai/sponsor:${{ env.IMAGE_TAG }}
+          kubectl set image deployment/payment-svc payment-svc=${{ env.REGISTRY }}/eventos-ai/payment:${{ env.IMAGE_TAG }}
