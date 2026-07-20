@@ -50,7 +50,7 @@ export function useChatWS(conversationId?: string): UseChatWSReturn {
         const socket = ws.connect(namespace, token);
 
         const unsubConnect = ws.on(namespace, 'connect', () => {
-            currentUserId.current = socket.auth?.userId || null;
+            currentUserId.current = (socket.auth as { userId?: string })?.userId || null;
             setConnected(true);
             if (currentConvId.current) {
                 ws.emit(namespace, 'chat:join', currentConvId.current);

@@ -9,7 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@eventos-ai/sdk": "workspace:*",
+    "@eventos-ai/sdk": "*",
     "expo": "~51.0.0",
     "expo-router": "~3.5.0",
     "expo-camera": "~15.0.0",
