@@ -380,6 +380,34 @@ services:
     networks:
       - eventos-network
 
+  monolith:
+    build:
+      context: ./backend/monolith
+      dockerfile: Dockerfile
+    container_name: eventos-monolith
+    environment:
+      DATABASE_URL: postgresql://eventos:eventos_dev@postgres:5432/eventos
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/identity/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - eventos-network
+
 volumes:
   pgdata:
   qdrant_data:
