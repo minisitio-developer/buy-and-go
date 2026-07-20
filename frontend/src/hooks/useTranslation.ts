@@ -26,7 +26,7 @@ export function useTranslation(): UseTranslationReturn {
     return {
         t,
         locale: i18n.language,
-        changeLanguage: (locale: string) => i18n.changeLanguage(locale),
+        changeLanguage: async (locale: string) => { await i18n.changeLanguage(locale) },
         i18n,
     };
 }
